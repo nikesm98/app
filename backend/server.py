@@ -9,6 +9,12 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List
 import uuid
 from datetime import datetime, timezone
+import sys
+
+# Add backend directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+
+from routes.maintenance import router as maintenance_router
 
 
 ROOT_DIR = Path(__file__).parent
