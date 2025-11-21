@@ -4,19 +4,39 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
-import { getMaintenanceLogs } from '../mock';
-import { ArrowLeft, Search, Calendar, Truck, Battery, CircleDot } from 'lucide-react';
+import { ArrowLeft, Search, Calendar, Truck, Battery, CircleDot, Loader2, RefreshCw } from 'lucide-react';
+import axios from 'axios';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [logs, setLogs] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredLogs, setFilteredLogs] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchLogs = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get(`${API}/maintenance/logs`);
+      if (response.data.success) {
+        setLogs(response.data.logs);
+        setFilteredLogs(response.data.logs);
+      }
+    } catch (err) {
+      console.error('Error fetching logs:', err);
+      setError(err.response?.data?.detail || 'Failed to load maintenance logs');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const maintenanceLogs = getMaintenanceLogs();
-    setLogs(maintenanceLogs);
-    setFilteredLogs(maintenanceLogs);
+    fetchLogs();
   }, []);
 
   useEffect(() => {
@@ -54,14 +74,24 @@ const Dashboard = () => {
             Back to Home
           </Button>
 
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <Input
-              placeholder="Search by vehicle number..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-12 border-2 hover:border-[#007BC1] transition-colors"
-            />
+          <div className="flex gap-3 items-center">
+            <div className="relative w-full md:w-96">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Input
+                placeholder="Search by vehicle number..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-12 border-2 hover:border-[#007BC1] transition-colors"
+              />
+            </div>
+            <Button
+              onClick={fetchLogs}
+              variant="outline"
+              className="h-12 px-4 border-2 hover:border-[#007BC1] transition-colors"
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
         </div>
 
@@ -78,7 +108,24 @@ const Dashboard = () => {
           </CardHeader>
         </Card>
 
-        {filteredLogs.length === 0 ? (
+        {isLoading ? (
+          <Card className="shadow-lg">
+            <CardContent className="py-16 text-center">
+              <Loader2 className="h-16 w-16 mx-auto mb-4 animate-spin" style={{ color: '#007BC1' }} />
+              <p className="text-xl" style={{ color: '#204788' }}>Loading maintenance logs...</p>
+            </CardContent>
+          </Card>
+        ) : error ? (
+          <Card className="shadow-lg border-l-4" style={{ borderLeftColor: '#E73036' }}>
+            <CardContent className="py-16 text-center">
+              <p className="text-xl mb-4" style={{ color: '#E73036' }}>Error: {error}</p>
+              <Button onClick={fetchLogs} style={{ backgroundColor: '#007BC1' }} className="text-white">
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
+        ) : filteredLogs.length === 0 ? (
           <Card className="shadow-lg">
             <CardContent className="py-16 text-center">
               <Truck className="h-20 w-20 mx-auto mb-4" style={{ color: '#747375' }} />
@@ -128,13 +175,15 @@ const Dashboard = () => {
                           <p className="font-medium" style={{ color: '#204788' }}>{log.batteryNumber}</p>
                         </div>
                       )}
-                      {log.batteryPhoto && (
-                        <img
-                          src={log.batteryPhoto}
-                          alt="Battery"
-                          className="w-24 h-24 object-cover rounded-lg border-2"
-                          style={{ borderColor: '#007BC1' }}
-                        />
+                      {log.batteryPhotoUrl && (
+                        <a href={log.batteryPhotoUrl} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={log.batteryPhotoUrl}
+                            alt="Battery"
+                            className="w-24 h-24 object-cover rounded-lg border-2 hover:opacity-80 transition-opacity cursor-pointer"
+                            style={{ borderColor: '#007BC1' }}
+                          />
+                        </a>
                       )}
                     </div>
 
@@ -167,18 +216,19 @@ const Dashboard = () => {
                   </div>
 
                   {/* Vehicle Images Preview */}
-                  {log.vehicleImages && Object.keys(log.vehicleImages).length > 0 && (
+                  {log.vehicleImageUrls && Object.keys(log.vehicleImageUrls).length > 0 && (
                     <div className="mt-6 pt-6 border-t">
                       <p className="font-semibold mb-3" style={{ color: '#204788' }}>Vehicle Images</p>
                       <div className="flex gap-3 flex-wrap">
-                        {Object.entries(log.vehicleImages).map(([key, url]) => (
-                          <img
-                            key={key}
-                            src={url}
-                            alt={key}
-                            className="h-20 w-20 object-cover rounded-lg border-2"
-                            style={{ borderColor: '#204788' }}
-                          />
+                        {Object.entries(log.vehicleImageUrls).map(([key, url]) => (
+                          <a key={key} href={url} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={url}
+                              alt={key}
+                              className="h-20 w-20 object-cover rounded-lg border-2 hover:opacity-80 transition-opacity cursor-pointer"
+                              style={{ borderColor: '#204788' }}
+                            />
+                          </a>
                         ))}
                       </div>
                     </div>

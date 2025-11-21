@@ -6,11 +6,16 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from '../hooks/use-toast';
-import { vehicleNumbers, tyrePositions, vehicleImageTypes, saveMaintenanceLog } from '../mock';
-import { Upload, Save, ArrowLeft } from 'lucide-react';
+import { vehicleNumbers, tyrePositions, vehicleImageTypes } from '../mock';
+import { Upload, Save, ArrowLeft, Loader2 } from 'lucide-react';
+import axios from 'axios';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 const MaintenanceForm = () => {
   const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     vehicleNumber: '',
     batteryNumber: '',
@@ -92,7 +97,7 @@ const MaintenanceForm = () => {
     if (file) reader.readAsDataURL(file);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Validation - only vehicle number is required
@@ -105,26 +110,45 @@ const MaintenanceForm = () => {
       return;
     }
 
-    // Save to local storage (mock)
-    saveMaintenanceLog(formData);
+    setIsSubmitting(true);
 
-    toast({
-      title: "Success",
-      description: "Your data has been submitted successfully.",
-      className: "bg-green-50 border-green-200"
-    });
+    try {
+      // Submit to backend API
+      const response = await axios.post(`${API}/maintenance/submit`, formData);
 
-    // Reset form
-    setTimeout(() => {
-      setFormData({
-        vehicleNumber: '',
-        batteryNumber: '',
-        batteryPhoto: null,
-        tyres: {},
-        tyrePhotos: {},
-        vehicleImages: {}
+      if (response.data.success) {
+        toast({
+          title: "Success",
+          description: "Your data has been submitted successfully.",
+          className: "bg-green-50 border-green-200"
+        });
+
+        // Reset form after 1.5 seconds
+        setTimeout(() => {
+          setFormData({
+            vehicleNumber: '',
+            batteryNumber: '',
+            batteryPhoto: null,
+            tyres: {},
+            tyrePhotos: {},
+            vehicleImages: {}
+          });
+          // Reset file inputs
+          document.querySelectorAll('input[type="file"]').forEach(input => {
+            input.value = '';
+          });
+        }, 1500);
+      }
+    } catch (error) {
+      console.error('Submission error:', error);
+      toast({
+        title: "Submission Error",
+        description: error.response?.data?.detail || "Failed to submit maintenance log. Please try again.",
+        variant: "destructive"
       });
-    }, 1500);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -134,6 +158,7 @@ const MaintenanceForm = () => {
           variant="ghost"
           onClick={() => navigate('/')}
           className="mb-6 hover:bg-white transition-colors"
+          disabled={isSubmitting}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Home
@@ -152,7 +177,7 @@ const MaintenanceForm = () => {
                 <Label htmlFor="vehicle" className="text-lg font-semibold" style={{ color: '#204788' }}>
                   Vehicle Number <span className="text-red-500">*</span>
                 </Label>
-                <Select value={formData.vehicleNumber} onValueChange={handleVehicleChange}>
+                <Select value={formData.vehicleNumber} onValueChange={handleVehicleChange} disabled={isSubmitting}>
                   <SelectTrigger className="w-full h-12 text-base border-2 hover:border-[#007BC1] transition-colors">
                     <SelectValue placeholder="Select vehicle number" />
                   </SelectTrigger>
@@ -182,6 +207,7 @@ const MaintenanceForm = () => {
                       onChange={handleBatteryNumberChange}
                       placeholder="Enter battery number"
                       className="mt-2 h-11 border-2 hover:border-[#007BC1] transition-colors"
+                      disabled={isSubmitting}
                     />
                   </div>
                   <div>
@@ -195,6 +221,7 @@ const MaintenanceForm = () => {
                         accept="image/*"
                         onChange={(e) => handleFileUpload('batteryPhoto', e.target.files[0])}
                         className="h-11 border-2 hover:border-[#007BC1] transition-colors"
+                        disabled={isSubmitting}
                       />
                       {formData.batteryPhoto && (
                         <img src={formData.batteryPhoto} alt="Battery" className="h-20 w-20 object-cover rounded border-2" style={{ borderColor: '#007BC1' }} />
@@ -221,6 +248,7 @@ const MaintenanceForm = () => {
                           value={formData.tyres[position.id] || ''}
                           onChange={(e) => handleTyreNumberChange(position.id, e.target.value)}
                           className="h-10 border-2 hover:border-[#F5A11B] transition-colors"
+                          disabled={isSubmitting}
                         />
                         <div className="flex items-center gap-3">
                           <Input
@@ -228,6 +256,7 @@ const MaintenanceForm = () => {
                             accept="image/*"
                             onChange={(e) => handleTyrePhotoUpload(position.id, e.target.files[0])}
                             className="h-10 text-sm border-2 hover:border-[#F5A11B] transition-colors"
+                            disabled={isSubmitting}
                           />
                           {formData.tyrePhotos[position.id] && (
                             <img
@@ -261,6 +290,7 @@ const MaintenanceForm = () => {
                           value={formData.tyres[position.id] || ''}
                           onChange={(e) => handleTyreNumberChange(position.id, e.target.value)}
                           className="h-10 border-2 hover:border-[#E73036] transition-colors"
+                          disabled={isSubmitting}
                         />
                         <div className="flex items-center gap-3">
                           <Input
@@ -268,6 +298,7 @@ const MaintenanceForm = () => {
                             accept="image/*"
                             onChange={(e) => handleTyrePhotoUpload(position.id, e.target.files[0])}
                             className="h-10 text-sm border-2 hover:border-[#E73036] transition-colors"
+                            disabled={isSubmitting}
                           />
                           {formData.tyrePhotos[position.id] && (
                             <img
@@ -303,6 +334,7 @@ const MaintenanceForm = () => {
                             accept="image/*"
                             onChange={(e) => handleVehicleImageUpload(imageType.id, e.target.files[0])}
                             className="h-11 border-2 hover:border-[#204788] transition-colors"
+                            disabled={isSubmitting}
                           />
                           {formData.vehicleImages[imageType.id] && (
                             <img
@@ -326,9 +358,19 @@ const MaintenanceForm = () => {
                   size="lg"
                   className="w-full md:w-auto px-12 h-14 text-lg font-semibold text-white transition-all hover:shadow-lg"
                   style={{ backgroundColor: '#007BC1' }}
+                  disabled={isSubmitting}
                 >
-                  <Save className="mr-2 h-5 w-5" />
-                  Submit Maintenance Log
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-5 w-5" />
+                      Submit Maintenance Log
+                    </>
+                  )}
                 </Button>
               </div>
             </form>
