@@ -32,6 +32,40 @@ const DRIVE_FOLDER_NAME = "Vehicle Maintenance Images";
  * Initialize Google Sheet and Drive folder
  * Run this function ONCE after creating the script
  */
+
+function formatJsonForSheet(jsonInput) {
+  try {
+    const obj = (typeof jsonInput === "string") ? JSON.parse(jsonInput || "{}") : jsonInput;
+
+    if (!obj || Object.keys(obj).length === 0) return "";
+
+    return Object.entries(obj)
+      .map(([key, val]) => `${key}: ${val}`)
+      .join("\n");
+
+  } catch (err) {
+    return jsonInput; // fallback to raw value if parsing fails
+  }
+}
+
+function convertReadableToJson(str) {
+  if (!str || str.trim() === "") return "{}";
+
+  const obj = {};
+  const lines = str.split("\n");
+
+  for (let line of lines) {
+    const parts = line.split(":");
+    if (parts.length >= 2) {
+      const key = parts[0].trim();
+      const val = parts.slice(1).join(":").trim();
+      obj[key] = val;
+    }
+  }
+
+  return JSON.stringify(obj);
+}
+
 function setup() {
   try {
     // Create or get spreadsheet
@@ -45,9 +79,9 @@ function setup() {
         "Vehicle Number",
         "Battery Number",
         "Battery Photo URL",
-        "Tyres Data (JSON)",
-        "Tyre Photos URLs (JSON)",
-        "Vehicle Images URLs (JSON)"
+        "Tyres Data",
+        "Tyre Photos URLs",
+        "Vehicle Images URLs"
       ];
       sheet.appendRow(headers);
       sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
@@ -186,9 +220,9 @@ function submitMaintenanceLog(data) {
       data.vehicleNumber,
       data.batteryNumber || "",
       batteryPhotoUrl,
-      data.tyres || "{}",
-      JSON.stringify(tyrePhotoUrls),
-      JSON.stringify(vehicleImageUrls)
+      formatJsonForSheet(data.tyres),
+      formatJsonForSheet(tyrePhotoUrls),
+      formatJsonForSheet(vehicleImageUrls)
     ];
     
     sheet.appendRow(row);
@@ -245,13 +279,13 @@ function getMaintenanceLogs(vehicleNumber) {
       
       const log = {
         id: row[0].toString(),
+        submittedAt: row[1],
         vehicleNumber: row[2],
         batteryNumber: row[3] || null,
         batteryPhotoUrl: row[4] || null,
-        tyres: JSON.parse(row[5] || "{}"),
-        tyrePhotoUrls: JSON.parse(row[6] || "{}"),
-        vehicleImageUrls: JSON.parse(row[7] || "{}"),
-        submittedAt: row[1]
+        tyres: JSON.parse(convertReadableToJson(row[5])),
+        tyrePhotoUrls: JSON.parse(convertReadableToJson(row[6])),
+        vehicleImageUrls: JSON.parse(convertReadableToJson(row[7]))
       };
       
       logs.push(log);

@@ -1,5 +1,4 @@
 from fastapi import FastAPI, APIRouter
-from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
@@ -10,15 +9,15 @@ from typing import List
 import uuid
 from datetime import datetime, timezone
 import sys
+from dotenv import load_dotenv, find_dotenv
 
 # Add backend directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from routes.maintenance import router as maintenance_router
-
-
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+from routes.maintenance import router as maintenance_router
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
