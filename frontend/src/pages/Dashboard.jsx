@@ -7,8 +7,8 @@ import { Badge } from '../components/ui/badge';
 import { ArrowLeft, Search, Calendar, Truck, Battery, CircleDot, Loader2, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+// ✅ Correct backend URL for Apps Script (NO /api at the end)
+const API = process.env.REACT_APP_BACKEND_URL;
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -18,18 +18,27 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // ----------------------------
+  // Fetch Logs from Apps Script
+  // ----------------------------
   const fetchLogs = async () => {
     setIsLoading(true);
     setError(null);
+
     try {
-      const response = await axios.get(`${API}/maintenance/logs`);
+      // Apps Script GET endpoint format:
+      // ?action=get_logs
+      const response = await axios.get(`${API}?action=get_logs`);
+
       if (response.data.success) {
         setLogs(response.data.logs);
         setFilteredLogs(response.data.logs);
+      } else {
+        setError("Failed to load records.");
       }
     } catch (err) {
-      console.error('Error fetching logs:', err);
-      setError(err.response?.data?.detail || 'Failed to load maintenance logs');
+      console.error("Error fetching logs:", err);
+      setError("Failed to load maintenance logs");
     } finally {
       setIsLoading(false);
     }
@@ -40,9 +49,9 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    if (searchTerm) {
+    if (searchTerm.trim()) {
       const filtered = logs.filter(log =>
-        log.vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase())
+        log.vehicleNumber?.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredLogs(filtered);
     } else {
@@ -52,7 +61,7 @@ const Dashboard = () => {
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-IN', {
+    return date.toLocaleString('en-IN', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -64,7 +73,9 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8 px-4">
       <div className="max-w-7xl mx-auto">
+        {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+          
           <Button
             variant="ghost"
             onClick={() => navigate('/')}
@@ -84,6 +95,7 @@ const Dashboard = () => {
                 className="pl-10 h-12 border-2 hover:border-[#007BC1] transition-colors"
               />
             </div>
+
             <Button
               onClick={fetchLogs}
               variant="outline"
@@ -95,6 +107,7 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Title Card */}
         <Card className="shadow-xl border-t-4 mb-8" style={{ borderTopColor: '#007BC1' }}>
           <CardHeader className="bg-white border-b">
             <div className="flex items-center justify-between">
@@ -108,6 +121,7 @@ const Dashboard = () => {
           </CardHeader>
         </Card>
 
+        {/* Loading State */}
         {isLoading ? (
           <Card className="shadow-lg">
             <CardContent className="py-16 text-center">
@@ -138,10 +152,15 @@ const Dashboard = () => {
         ) : (
           <div className="grid gap-6">
             {filteredLogs.map((log) => (
-              <Card key={log.id} className="shadow-lg hover:shadow-xl transition-shadow border-l-4" style={{ borderLeftColor: '#007BC1' }}>
+              <Card
+                key={log.id}
+                className="shadow-lg hover:shadow-xl transition-shadow border-l-4"
+                style={{ borderLeftColor: '#007BC1' }}
+              >
                 <CardContent className="p-6">
                   <div className="grid md:grid-cols-3 gap-6">
-                    {/* Vehicle Info */}
+
+                    {/* Vehicle */}
                     <div className="space-y-4">
                       <div className="flex items-start gap-3">
                         <Truck className="h-6 w-6 mt-1" style={{ color: '#007BC1' }} />
@@ -152,6 +171,7 @@ const Dashboard = () => {
                           </p>
                         </div>
                       </div>
+
                       <div className="flex items-start gap-3">
                         <Calendar className="h-5 w-5 mt-1" style={{ color: '#F5A11B' }} />
                         <div>
@@ -163,18 +183,20 @@ const Dashboard = () => {
                       </div>
                     </div>
 
-                    {/* Battery Info */}
+                    {/* Battery */}
                     <div className="space-y-3">
                       <div className="flex items-center gap-2 mb-3">
                         <Battery className="h-5 w-5" style={{ color: '#007BC1' }} />
                         <p className="font-semibold text-lg" style={{ color: '#204788' }}>Battery</p>
                       </div>
+
                       {log.batteryNumber && (
                         <div className="bg-slate-50 p-3 rounded-lg border">
                           <p className="text-sm text-gray-500">Battery Number</p>
                           <p className="font-medium" style={{ color: '#204788' }}>{log.batteryNumber}</p>
                         </div>
                       )}
+
                       {log.batteryPhotoUrl && (
                         <a href={log.batteryPhotoUrl} target="_blank" rel="noopener noreferrer">
                           <img
@@ -187,12 +209,13 @@ const Dashboard = () => {
                       )}
                     </div>
 
-                    {/* Tyre Info */}
+                    {/* Tyres */}
                     <div className="space-y-3">
                       <div className="flex items-center gap-2 mb-3">
                         <CircleDot className="h-5 w-5" style={{ color: '#E73036' }} />
                         <p className="font-semibold text-lg" style={{ color: '#204788' }}>Tyres</p>
                       </div>
+
                       {log.tyres && Object.keys(log.tyres).length > 0 ? (
                         <div className="space-y-2">
                           {Object.entries(log.tyres).slice(0, 4).map(([key, value]) => (
@@ -203,6 +226,7 @@ const Dashboard = () => {
                               <p className="font-medium" style={{ color: '#204788' }}>{value}</p>
                             </div>
                           ))}
+
                           {Object.keys(log.tyres).length > 4 && (
                             <Badge variant="secondary" className="w-full justify-center">
                               +{Object.keys(log.tyres).length - 4} more tyres
@@ -213,12 +237,14 @@ const Dashboard = () => {
                         <p className="text-sm text-gray-400">No tyre data</p>
                       )}
                     </div>
+
                   </div>
 
-                  {/* Vehicle Images Preview */}
+                  {/* Vehicle Images */}
                   {log.vehicleImageUrls && Object.keys(log.vehicleImageUrls).length > 0 && (
                     <div className="mt-6 pt-6 border-t">
                       <p className="font-semibold mb-3" style={{ color: '#204788' }}>Vehicle Images</p>
+
                       <div className="flex gap-3 flex-wrap">
                         {Object.entries(log.vehicleImageUrls).map(([key, url]) => (
                           <a key={key} href={url} target="_blank" rel="noopener noreferrer">
@@ -233,6 +259,7 @@ const Dashboard = () => {
                       </div>
                     </div>
                   )}
+
                 </CardContent>
               </Card>
             ))}

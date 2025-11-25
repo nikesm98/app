@@ -10,12 +10,13 @@ import { vehicleNumbers, tyrePositions, vehicleImageTypes } from '../mock';
 import { Upload, Save, ArrowLeft, Loader2 } from 'lucide-react';
 import axios from 'axios';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+// ⭐ Apps Script deployed URL
+const API = process.env.REACT_APP_BACKEND_URL;
 
 const MaintenanceForm = () => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [formData, setFormData] = useState({
     vehicleNumber: '',
     batteryNumber: '',
@@ -24,6 +25,8 @@ const MaintenanceForm = () => {
     tyrePhotos: {},
     vehicleImages: {}
   });
+
+  /* ---------------- HANDLERS ---------------- */
 
   const handleVehicleChange = (value) => {
     setFormData({ ...formData, vehicleNumber: value });
@@ -42,7 +45,6 @@ const MaintenanceForm = () => {
       });
       return;
     }
-    
     const reader = new FileReader();
     reader.onloadend = () => {
       setFormData({ ...formData, [field]: reader.result });
@@ -97,59 +99,70 @@ const MaintenanceForm = () => {
     if (file) reader.readAsDataURL(file);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Validation - only vehicle number is required
-    if (!formData.vehicleNumber) {
+  /* ---------------- SUBMIT ---------------- */
+
+  // --- only the submit part changes ---
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  if (!formData.vehicleNumber) {
+    toast({
+      title: "Validation Error",
+      description: "Please select a vehicle number",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  setIsSubmitting(true);
+
+  try {
+    const payload = { action: "submit", ...formData };
+
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await res.json();
+
+    if (result.success) {
       toast({
-        title: "Validation Error",
-        description: "Please select a vehicle number",
-        variant: "destructive"
+        title: "Success",
+        description: "Maintenance log submitted",
       });
-      return;
-    }
 
-    setIsSubmitting(true);
+      setFormData({
+        vehicleNumber: "",
+        batteryNumber: "",
+        batteryPhoto: null,
+        tyres: {},
+        tyrePhotos: {},
+        vehicleImages: {},
+      });
 
-    try {
-      // Submit to backend API
-      const response = await axios.post(`${API}/maintenance/submit`, formData);
-
-      if (response.data.success) {
-        toast({
-          title: "Success",
-          description: "Your data has been submitted successfully.",
-          className: "bg-green-50 border-green-200"
-        });
-
-        // Reset form after 1.5 seconds
-        setTimeout(() => {
-          setFormData({
-            vehicleNumber: '',
-            batteryNumber: '',
-            batteryPhoto: null,
-            tyres: {},
-            tyrePhotos: {},
-            vehicleImages: {}
-          });
-          // Reset file inputs
-          document.querySelectorAll('input[type="file"]').forEach(input => {
-            input.value = '';
-          });
-        }, 1500);
-      }
-    } catch (error) {
-      console.error('Submission error:', error);
+      document.querySelectorAll("input[type=file]").forEach((i) => (i.value = ""));
+    } else {
       toast({
-        title: "Submission Error",
-        description: error.response?.data?.detail || "Failed to submit maintenance log. Please try again.",
-        variant: "destructive"
+        title: "Failed",
+        description: result.error,
+        variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+  } catch (err) {
+    toast({
+      title: "Error",
+      description: err.message,
+      variant: "destructive",
+    });
+  }
+
+  setIsSubmitting(false);
+};
+
+
+  /* ---------------- JSX ---------------- */
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8 px-4">
@@ -160,8 +173,7 @@ const MaintenanceForm = () => {
           className="mb-6 hover:bg-white transition-colors"
           disabled={isSubmitting}
         >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Home
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
         </Button>
 
         <Card className="shadow-xl border-t-4" style={{ borderTopColor: '#007BC1' }}>
@@ -170,193 +182,205 @@ const MaintenanceForm = () => {
               Vehicle Maintenance Entry Form
             </CardTitle>
           </CardHeader>
+
           <CardContent className="pt-8 space-y-8">
             <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Vehicle Selection */}
+
+              {/* VEHICLE SELECT */}
               <div className="space-y-3">
-                <Label htmlFor="vehicle" className="text-lg font-semibold" style={{ color: '#204788' }}>
+                <Label className="text-lg font-semibold" style={{ color: '#204788' }}>
                   Vehicle Number <span className="text-red-500">*</span>
                 </Label>
+
                 <Select value={formData.vehicleNumber} onValueChange={handleVehicleChange} disabled={isSubmitting}>
-                  <SelectTrigger className="w-full h-12 text-base border-2 hover:border-[#007BC1] transition-colors">
+                  <SelectTrigger className="w-full h-12 border-2 hover:border-[#007BC1]">
                     <SelectValue placeholder="Select vehicle number" />
                   </SelectTrigger>
-                  <SelectContent className="max-h-64">
-                    {vehicleNumbers.map((vehicle) => (
-                      <SelectItem key={vehicle} value={vehicle} className="text-base">
-                        {vehicle}
-                      </SelectItem>
+                  <SelectContent>
+                    {vehicleNumbers.map(vehicle => (
+                      <SelectItem key={vehicle} value={vehicle}>{vehicle}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Battery Section */}
+              {/* BATTERY CARD */}
               <Card className="border-2" style={{ borderColor: '#007BC1' }}>
                 <CardHeader style={{ backgroundColor: '#007BC1' }}>
                   <CardTitle className="text-white text-xl">Battery Information</CardTitle>
                 </CardHeader>
+
                 <CardContent className="pt-6 space-y-4">
+
                   <div>
-                    <Label htmlFor="batteryNumber" className="text-base font-medium" style={{ color: '#204788' }}>
-                      Battery Number
-                    </Label>
+                    <Label style={{ color: '#204788' }}>Battery Number</Label>
                     <Input
-                      id="batteryNumber"
                       value={formData.batteryNumber}
                       onChange={handleBatteryNumberChange}
+                      className="mt-2 h-12 border-2 hover:border-[#007BC1]"
                       placeholder="Enter battery number"
-                      className="mt-2 h-11 border-2 hover:border-[#007BC1] transition-colors"
                       disabled={isSubmitting}
                     />
                   </div>
+
                   <div>
-                    <Label htmlFor="batteryPhoto" className="text-base font-medium" style={{ color: '#204788' }}>
-                      Battery Photo
-                    </Label>
-                    <div className="mt-2 flex items-center gap-4">
+                    <Label style={{ color: '#204788' }}>Battery Photo</Label>
+                    <div className="flex items-center gap-4 mt-2">
                       <Input
-                        id="batteryPhoto"
                         type="file"
                         accept="image/*"
                         onChange={(e) => handleFileUpload('batteryPhoto', e.target.files[0])}
-                        className="h-11 border-2 hover:border-[#007BC1] transition-colors"
+                        className="h-12 border-2"
                         disabled={isSubmitting}
                       />
                       {formData.batteryPhoto && (
-                        <img src={formData.batteryPhoto} alt="Battery" className="h-20 w-20 object-cover rounded border-2" style={{ borderColor: '#007BC1' }} />
+                        <img src={formData.batteryPhoto} className="h-20 w-20 rounded border-2" style={{ borderColor: '#007BC1' }} alt="Battery" />
                       )}
                     </div>
                   </div>
+
                 </CardContent>
               </Card>
 
-              {/* Primer Tyres Section */}
+              {/* TYRE SECTIONS */}
               <Card className="border-2" style={{ borderColor: '#F5A11B' }}>
                 <CardHeader style={{ backgroundColor: '#F5A11B' }}>
-                  <CardTitle className="text-white text-xl">Primer Tyre Positions</CardTitle>
+                  <CardTitle className="text-white">Primer Tyre Positions</CardTitle>
                 </CardHeader>
+
                 <CardContent className="pt-6">
                   <div className="grid md:grid-cols-2 gap-6">
-                    {tyrePositions.primer.map((position) => (
-                      <div key={position.id} className="space-y-3 p-4 bg-slate-50 rounded-lg border">
-                        <Label className="text-base font-semibold" style={{ color: '#204788' }}>
-                          {position.label}
-                        </Label>
+                    {tyrePositions.primer.map(pos => (
+                      <div key={pos.id} className="p-4 bg-slate-50 rounded-lg border space-y-3">
+
+                        <Label style={{ color: '#204788' }}>{pos.label}</Label>
+
                         <Input
                           placeholder="Tyre number"
-                          value={formData.tyres[position.id] || ''}
-                          onChange={(e) => handleTyreNumberChange(position.id, e.target.value)}
-                          className="h-10 border-2 hover:border-[#F5A11B] transition-colors"
+                          value={formData.tyres[pos.id] || ''}
+                          onChange={(e) => handleTyreNumberChange(pos.id, e.target.value)}
+                          className="h-10 border-2 hover:border-[#F5A11B]"
                           disabled={isSubmitting}
                         />
+
                         <div className="flex items-center gap-3">
                           <Input
                             type="file"
                             accept="image/*"
-                            onChange={(e) => handleTyrePhotoUpload(position.id, e.target.files[0])}
-                            className="h-10 text-sm border-2 hover:border-[#F5A11B] transition-colors"
+                            onChange={(e) => handleTyrePhotoUpload(pos.id, e.target.files[0])}
+                            className="h-10 border-2"
                             disabled={isSubmitting}
                           />
-                          {formData.tyrePhotos[position.id] && (
+
+                          {formData.tyrePhotos[pos.id] && (
                             <img
-                              src={formData.tyrePhotos[position.id]}
-                              alt={position.label}
+                              src={formData.tyrePhotos[pos.id]}
+                              alt={pos.label}
                               className="h-16 w-16 object-cover rounded border-2"
                               style={{ borderColor: '#F5A11B' }}
                             />
                           )}
                         </div>
+
                       </div>
                     ))}
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Trailer Tyres Section */}
+              {/* TRAILER TYRES */}
               <Card className="border-2" style={{ borderColor: '#E73036' }}>
                 <CardHeader style={{ backgroundColor: '#E73036' }}>
-                  <CardTitle className="text-white text-xl">Trailer Tyre Positions</CardTitle>
+                  <CardTitle className="text-white">Trailer Tyre Positions</CardTitle>
                 </CardHeader>
+
                 <CardContent className="pt-6">
                   <div className="grid md:grid-cols-2 gap-6">
-                    {tyrePositions.trailer.map((position) => (
-                      <div key={position.id} className="space-y-3 p-4 bg-slate-50 rounded-lg border">
-                        <Label className="text-base font-semibold" style={{ color: '#204788' }}>
-                          {position.label}
-                        </Label>
+                    {tyrePositions.trailer.map(pos => (
+                      <div key={pos.id} className="p-4 bg-slate-50 rounded-lg border space-y-3">
+
+                        <Label style={{ color: '#204788' }}>{pos.label}</Label>
+
                         <Input
                           placeholder="Tyre number"
-                          value={formData.tyres[position.id] || ''}
-                          onChange={(e) => handleTyreNumberChange(position.id, e.target.value)}
-                          className="h-10 border-2 hover:border-[#E73036] transition-colors"
+                          value={formData.tyres[pos.id] || ''}
+                          onChange={(e) => handleTyreNumberChange(pos.id, e.target.value)}
+                          className="h-10 border-2 hover:border-[#E73036]"
                           disabled={isSubmitting}
                         />
+
                         <div className="flex items-center gap-3">
                           <Input
                             type="file"
                             accept="image/*"
-                            onChange={(e) => handleTyrePhotoUpload(position.id, e.target.files[0])}
-                            className="h-10 text-sm border-2 hover:border-[#E73036] transition-colors"
+                            onChange={(e) => handleTyrePhotoUpload(pos.id, e.target.files[0])}
+                            className="h-10 border-2"
                             disabled={isSubmitting}
                           />
-                          {formData.tyrePhotos[position.id] && (
+
+                          {formData.tyrePhotos[pos.id] && (
                             <img
-                              src={formData.tyrePhotos[position.id]}
-                              alt={position.label}
+                              src={formData.tyrePhotos[pos.id]}
+                              alt={pos.label}
                               className="h-16 w-16 object-cover rounded border-2"
                               style={{ borderColor: '#E73036' }}
                             />
                           )}
                         </div>
+
                       </div>
                     ))}
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Vehicle Images Section */}
+              {/* VEHICLE IMAGES */}
               <Card className="border-2" style={{ borderColor: '#204788' }}>
                 <CardHeader style={{ backgroundColor: '#204788' }}>
-                  <CardTitle className="text-white text-xl">Vehicle Images</CardTitle>
+                  <CardTitle className="text-white">Vehicle Images</CardTitle>
                 </CardHeader>
+
                 <CardContent className="pt-6">
                   <div className="grid md:grid-cols-2 gap-6">
-                    {vehicleImageTypes.map((imageType) => (
-                      <div key={imageType.id} className="space-y-3 p-4 bg-slate-50 rounded-lg border">
-                        <Label className="text-base font-semibold flex items-center gap-2" style={{ color: '#204788' }}>
+                    {vehicleImageTypes.map(type => (
+                      <div key={type.id} className="p-4 bg-slate-50 rounded-lg border space-y-3">
+
+                        <Label className="flex items-center gap-2" style={{ color: '#204788' }}>
                           <Upload className="h-4 w-4" />
-                          {imageType.label}
+                          {type.label}
                         </Label>
+
                         <div className="flex items-center gap-3">
                           <Input
                             type="file"
                             accept="image/*"
-                            onChange={(e) => handleVehicleImageUpload(imageType.id, e.target.files[0])}
-                            className="h-11 border-2 hover:border-[#204788] transition-colors"
+                            onChange={(e) => handleVehicleImageUpload(type.id, e.target.files[0])}
+                            className="h-11 border-2"
                             disabled={isSubmitting}
                           />
-                          {formData.vehicleImages[imageType.id] && (
+
+                          {formData.vehicleImages[type.id] && (
                             <img
-                              src={formData.vehicleImages[imageType.id]}
-                              alt={imageType.label}
+                              src={formData.vehicleImages[type.id]}
+                              alt={type.label}
                               className="h-20 w-20 object-cover rounded border-2"
                               style={{ borderColor: '#204788' }}
                             />
                           )}
                         </div>
+
                       </div>
                     ))}
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Submit Button */}
+              {/* SUBMIT BUTTON */}
               <div className="flex justify-center pt-4">
                 <Button
                   type="submit"
                   size="lg"
-                  className="w-full md:w-auto px-12 h-14 text-lg font-semibold text-white transition-all hover:shadow-lg"
+                  className="w-full md:w-auto px-12 h-14 text-lg font-semibold text-white"
                   style={{ backgroundColor: '#007BC1' }}
                   disabled={isSubmitting}
                 >
@@ -373,9 +397,11 @@ const MaintenanceForm = () => {
                   )}
                 </Button>
               </div>
+
             </form>
           </CardContent>
         </Card>
+
       </div>
     </div>
   );
