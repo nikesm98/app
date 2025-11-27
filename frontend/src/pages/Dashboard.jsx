@@ -8,7 +8,7 @@ import { ArrowLeft, Search, Calendar, Truck, Battery, CircleDot, Loader2, Refres
 import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const API = BACKEND_URL;
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -22,7 +22,7 @@ const Dashboard = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await axios.get(`${API}/maintenance/logs`);
+      const response = await axios.get(`${API}?action=get_logs`);
       if (response.data.success) {
         setLogs(response.data.logs);
         setFilteredLogs(response.data.logs);

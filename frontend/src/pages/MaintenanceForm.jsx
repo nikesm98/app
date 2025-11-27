@@ -11,7 +11,7 @@ import { Upload, Save, ArrowLeft, Loader2 } from 'lucide-react';
 import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const API = BACKEND_URL;
 
 const MaintenanceForm = () => {
   const navigate = useNavigate();
@@ -114,8 +114,15 @@ const MaintenanceForm = () => {
 
     try {
       // Submit to backend API
-      const response = await axios.post(`${API}/maintenance/submit`, formData);
-
+      const response = await axios.post(
+        API,
+        JSON.stringify({ action: "submit", ...formData }),
+        {
+          headers: {
+            "Content-Type": "text/plain"
+          }
+        }
+      );
       if (response.data.success) {
         toast({
           title: "Success",
