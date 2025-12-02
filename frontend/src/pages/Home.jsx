@@ -19,7 +19,7 @@ const Home = () => {
     {
       icon: <BarChart3 className="h-8 w-8" />,
       title: 'View Dashboard',
-      description: 'Access and review all submitted maintenance records',
+      description: 'Access and review all submitted maintenance records in a comprehensive dashboard',
       action: () => navigate('/dashboard'),
       buttonText: 'View Records',
       color: '#F5A11B'

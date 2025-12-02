@@ -4,7 +4,25 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "../components/ui/popover";
+
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "../components/ui/command";
+
+import { Check, ChevronsUpDown } from "lucide-react";
+
+import { cn } from "../lib/utils";
+
 import { toast } from '../hooks/use-toast';
 import { vehicleNumbers, tyrePositions, vehicleImageTypes } from '../mock';
 import { Upload, Save, ArrowLeft, Loader2 } from 'lucide-react';
@@ -16,6 +34,8 @@ const API = BACKEND_URL;
 const MaintenanceForm = () => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
+
   const [formData, setFormData] = useState({
     vehicleNumber: '',
     batteryNumber: '',
@@ -27,6 +47,7 @@ const MaintenanceForm = () => {
 
   const handleVehicleChange = (value) => {
     setFormData({ ...formData, vehicleNumber: value });
+    setComboboxOpen(false);
   };
 
   const handleBatteryNumberChange = (e) => {
@@ -42,7 +63,7 @@ const MaintenanceForm = () => {
       });
       return;
     }
-    
+
     const reader = new FileReader();
     reader.onloadend = () => {
       setFormData({ ...formData, [field]: reader.result });
@@ -99,8 +120,7 @@ const MaintenanceForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validation - only vehicle number is required
+
     if (!formData.vehicleNumber) {
       toast({
         title: "Validation Error",
@@ -130,7 +150,6 @@ const MaintenanceForm = () => {
           className: "bg-green-50 border-green-200"
         });
 
-        // Reset form after 1.5 seconds
         setTimeout(() => {
           setFormData({
             vehicleNumber: '',
@@ -140,7 +159,6 @@ const MaintenanceForm = () => {
             tyrePhotos: {},
             vehicleImages: {}
           });
-          // Reset file inputs
           document.querySelectorAll('input[type="file"]').forEach(input => {
             input.value = '';
           });
@@ -179,23 +197,76 @@ const MaintenanceForm = () => {
           </CardHeader>
           <CardContent className="pt-8 space-y-8">
             <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Vehicle Selection */}
+
+              {/* VEHICLE NUMBER - SEARCHABLE COMBOBOX */}
               <div className="space-y-3">
                 <Label htmlFor="vehicle" className="text-lg font-semibold" style={{ color: '#204788' }}>
                   Vehicle Number <span className="text-red-500">*</span>
                 </Label>
-                <Select value={formData.vehicleNumber} onValueChange={handleVehicleChange} disabled={isSubmitting}>
-                  <SelectTrigger className="w-full h-12 text-base border-2 hover:border-[#007BC1] transition-colors">
-                    <SelectValue placeholder="Select vehicle number" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-64">
-                    {vehicleNumbers.map((vehicle) => (
-                      <SelectItem key={vehicle} value={vehicle} className="text-base">
-                        {vehicle}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+                <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      className="w-full h-12 px-4 border-2 rounded-md text-left flex items-center justify-between hover:border-[#007BC1] transition-colors"
+                      disabled={isSubmitting}
+                      style={{ borderColor: "#E5E7EB" }}  
+                    >
+                      {formData.vehicleNumber || "Select vehicle number"}
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </button>
+                  </PopoverTrigger>
+
+                  <PopoverContent
+                    className="w-[var(--radix-popover-trigger-width)] p-0 border-2 border-[#007BC1] rounded-md shadow-lg bg-white"
+                    align="start"
+                  >
+                    <Command>
+                      <div className="flex items-center px-3 py-2 border-b bg-gray-50">
+                        {/* <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4 text-gray-500 mr-2"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1010.5 3a7.5 7.5 0 006.15 13.65z"
+                          />
+                        </svg> */}
+
+                        <CommandInput
+                          placeholder="Search vehicle number..."
+                          className=""
+                        />
+                      </div>
+
+                      <CommandList className="max-h-60 overflow-y-auto">
+                        <CommandEmpty>No vehicle found.</CommandEmpty>
+
+                        <CommandGroup>
+                          {vehicleNumbers.map((vehicle) => (
+                            <CommandItem
+                              key={vehicle}
+                              value={vehicle}
+                              onSelect={() => handleVehicleChange(vehicle)}
+                              className="px-4 py-2 text-base cursor-pointer hover:bg-gray-100"
+                            >
+                              {vehicle}
+
+                              {formData.vehicleNumber === vehicle ? (
+                                <Check className="ml-auto h-4 w-4 text-[#007BC1]" />
+                              ) : null}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+
               </div>
 
               {/* Battery Section */}
@@ -236,12 +307,45 @@ const MaintenanceForm = () => {
                     </div>
                   </div>
                 </CardContent>
+                <CardContent className="pt-6 space-y-4">
+                  <div>
+                    <Label htmlFor="batteryNumber" className="text-base font-medium" style={{ color: '#204788' }}>
+                      Battery Number
+                    </Label>
+                    <Input
+                      id="batteryNumber"
+                      value={formData.batteryNumber}
+                      onChange={handleBatteryNumberChange}
+                      placeholder="Enter battery number"
+                      className="mt-2 h-11 border-2 hover:border-[#007BC1] transition-colors"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="batteryPhoto" className="text-base font-medium" style={{ color: '#204788' }}>
+                      Battery Photo
+                    </Label>
+                    <div className="mt-2 flex items-center gap-4">
+                      <Input
+                        id="batteryPhoto"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileUpload('batteryPhoto', e.target.files[0])}
+                        className="h-11 border-2 hover:border-[#007BC1] transition-colors"
+                        disabled={isSubmitting}
+                      />
+                      {formData.batteryPhoto && (
+                        <img src={formData.batteryPhoto} alt="Battery" className="h-20 w-20 object-cover rounded border-2" style={{ borderColor: '#007BC1' }} />
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
               </Card>
 
               {/* Primer Tyres Section */}
               <Card className="border-2" style={{ borderColor: '#F5A11B' }}>
                 <CardHeader style={{ backgroundColor: '#F5A11B' }}>
-                  <CardTitle className="text-white text-xl">Primer Tyre Positions</CardTitle>
+                  <CardTitle className="text-white text-xl">Primer/Horse Tyre Positions</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-6">
                   <div className="grid md:grid-cols-2 gap-6">
