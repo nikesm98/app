@@ -169,16 +169,32 @@ const Dashboard = () => {
                         <Battery className="h-5 w-5" style={{ color: '#007BC1' }} />
                         <p className="font-semibold text-lg" style={{ color: '#204788' }}>Battery</p>
                       </div>
-                      {log.batteryNumber && (
+                      {log.battery1Number && (
                         <div className="bg-slate-50 p-3 rounded-lg border">
-                          <p className="text-sm text-gray-500">Battery Number</p>
-                          <p className="font-medium" style={{ color: '#204788' }}>{log.batteryNumber}</p>
+                          <p className="text-sm text-gray-500">Battery Number 1</p>
+                          <p className="font-medium" style={{ color: '#204788' }}>{log.battery1Number}</p>
                         </div>
                       )}
-                      {log.batteryPhotoUrl && (
-                        <a href={log.batteryPhotoUrl} target="_blank" rel="noopener noreferrer">
+                      {log.battery1PhotoUrl && (
+                        <a href={log.battery1PhotoUrl} target="_blank" rel="noopener noreferrer">
                           <img
-                            src={log.batteryPhotoUrl}
+                            src={log.battery1PhotoUrl}
+                            alt="Battery"
+                            className="w-24 h-24 object-cover rounded-lg border-2 hover:opacity-80 transition-opacity cursor-pointer"
+                            style={{ borderColor: '#007BC1' }}
+                          />
+                        </a>
+                      )}
+                      {log.battery2Number && (
+                        <div className="bg-slate-50 p-3 rounded-lg border">
+                          <p className="text-sm text-gray-500">Battery Number 2</p>
+                          <p className="font-medium" style={{ color: '#204788' }}>{log.battery2Number}</p>
+                        </div>
+                      )}
+                      {log.battery2PhotoUrl && (
+                        <a href={log.battery2PhotoUrl} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={log.battery2PhotoUrl}
                             alt="Battery"
                             className="w-24 h-24 object-cover rounded-lg border-2 hover:opacity-80 transition-opacity cursor-pointer"
                             style={{ borderColor: '#007BC1' }}

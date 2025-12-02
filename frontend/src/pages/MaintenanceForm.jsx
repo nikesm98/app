@@ -38,8 +38,10 @@ const MaintenanceForm = () => {
 
   const [formData, setFormData] = useState({
     vehicleNumber: '',
-    batteryNumber: '',
-    batteryPhoto: null,
+    battery1Number: '',
+    battery2Number: '',
+    battery1Photo: null,
+    battery2Photo: null,
     tyres: {},
     tyrePhotos: {},
     vehicleImages: {}
@@ -50,8 +52,12 @@ const MaintenanceForm = () => {
     setComboboxOpen(false);
   };
 
-  const handleBatteryNumberChange = (e) => {
-    setFormData({ ...formData, batteryNumber: e.target.value });
+  const handleBattery1NumberChange = (e) => {
+    setFormData({ ...formData, battery1Number: e.target.value });
+  };
+
+  const handleBattery2NumberChange = (e) => {
+    setFormData({ ...formData, battery2Number: e.target.value });
   };
 
   const handleFileUpload = (field, file) => {
@@ -153,8 +159,10 @@ const MaintenanceForm = () => {
         setTimeout(() => {
           setFormData({
             vehicleNumber: '',
-            batteryNumber: '',
-            batteryPhoto: null,
+            battery1Number: '',
+            battery2Number: '',
+            battery1Photo: null,
+            battery2Photo: null,
             tyres: {},
             tyrePhotos: {},
             vehicleImages: {}
@@ -277,32 +285,32 @@ const MaintenanceForm = () => {
                 <CardContent className="pt-6 space-y-4">
                   <div>
                     <Label htmlFor="batteryNumber" className="text-base font-medium" style={{ color: '#204788' }}>
-                      Battery Number
+                      Battery Number 1
                     </Label>
                     <Input
                       id="batteryNumber"
-                      value={formData.batteryNumber}
-                      onChange={handleBatteryNumberChange}
-                      placeholder="Enter battery number"
+                      value={formData.battery1Number}
+                      onChange={handleBattery1NumberChange}
+                      placeholder="Enter battery number 1"
                       className="mt-2 h-11 border-2 hover:border-[#007BC1] transition-colors"
                       disabled={isSubmitting}
                     />
                   </div>
                   <div>
                     <Label htmlFor="batteryPhoto" className="text-base font-medium" style={{ color: '#204788' }}>
-                      Battery Photo
+                      Battery Photo 1
                     </Label>
                     <div className="mt-2 flex items-center gap-4">
                       <Input
                         id="batteryPhoto"
                         type="file"
                         accept="image/*"
-                        onChange={(e) => handleFileUpload('batteryPhoto', e.target.files[0])}
+                        onChange={(e) => handleFileUpload('battery1Photo', e.target.files[0])}
                         className="h-11 border-2 hover:border-[#007BC1] transition-colors"
                         disabled={isSubmitting}
                       />
-                      {formData.batteryPhoto && (
-                        <img src={formData.batteryPhoto} alt="Battery" className="h-20 w-20 object-cover rounded border-2" style={{ borderColor: '#007BC1' }} />
+                      {formData.battery1Photo && (
+                        <img src={formData.battery1Photo} alt="Battery" className="h-20 w-20 object-cover rounded border-2" style={{ borderColor: '#007BC1' }} />
                       )}
                     </div>
                   </div>
@@ -310,32 +318,32 @@ const MaintenanceForm = () => {
                 <CardContent className="pt-6 space-y-4">
                   <div>
                     <Label htmlFor="batteryNumber" className="text-base font-medium" style={{ color: '#204788' }}>
-                      Battery Number
+                      Battery Number 2
                     </Label>
                     <Input
                       id="batteryNumber"
-                      value={formData.batteryNumber}
-                      onChange={handleBatteryNumberChange}
-                      placeholder="Enter battery number"
+                      value={formData.battery2Number}
+                      onChange={handleBattery2NumberChange}
+                      placeholder="Enter battery number 2"
                       className="mt-2 h-11 border-2 hover:border-[#007BC1] transition-colors"
                       disabled={isSubmitting}
                     />
                   </div>
                   <div>
                     <Label htmlFor="batteryPhoto" className="text-base font-medium" style={{ color: '#204788' }}>
-                      Battery Photo
+                      Battery Photo 2
                     </Label>
                     <div className="mt-2 flex items-center gap-4">
                       <Input
                         id="batteryPhoto"
                         type="file"
                         accept="image/*"
-                        onChange={(e) => handleFileUpload('batteryPhoto', e.target.files[0])}
+                        onChange={(e) => handleFileUpload('battery2Photo', e.target.files[0])}
                         className="h-11 border-2 hover:border-[#007BC1] transition-colors"
                         disabled={isSubmitting}
                       />
-                      {formData.batteryPhoto && (
-                        <img src={formData.batteryPhoto} alt="Battery" className="h-20 w-20 object-cover rounded border-2" style={{ borderColor: '#007BC1' }} />
+                      {formData.battery2Photo && (
+                        <img src={formData.battery2Photo} alt="Battery" className="h-20 w-20 object-cover rounded border-2" style={{ borderColor: '#007BC1' }} />
                       )}
                     </div>
                   </div>

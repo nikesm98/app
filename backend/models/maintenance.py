@@ -19,8 +19,10 @@ class MaintenanceResponse(BaseModel):
 class MaintenanceLog(BaseModel):
     id: str
     vehicleNumber: str
-    batteryNumber: Optional[str] = None
-    batteryPhotoUrl: Optional[str] = None
+    battery1Number: Optional[str] = None
+    battery1PhotoUrl: Optional[str] = None
+    battery2Number: Optional[str] = None
+    battery2PhotoUrl: Optional[str] = None
     tyres: Optional[Dict[str, str]] = Field(default_factory=dict)
     tyrePhotoUrls: Optional[Dict[str, str]] = Field(default_factory=dict)
     vehicleImageUrls: Optional[Dict[str, str]] = Field(default_factory=dict)
