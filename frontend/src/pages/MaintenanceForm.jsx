@@ -39,8 +39,8 @@ const MaintenanceForm = () => {
   const [formData, setFormData] = useState({
     vehicleNumber: '',
     battery1Number: '',
-    battery2Number: '',
     battery1Photo: null,
+    battery2Number: '',
     battery2Photo: null,
     tyres: {},
     tyrePhotos: {},
@@ -160,8 +160,8 @@ const MaintenanceForm = () => {
           setFormData({
             vehicleNumber: '',
             battery1Number: '',
-            battery2Number: '',
             battery1Photo: null,
+            battery2Number: '',
             battery2Photo: null,
             tyres: {},
             tyrePhotos: {},

@@ -1,59 +1,62 @@
-/**
- * Vehicle Maintenance Logs - Google Apps Script
- * 
- * This script handles:
- * 1. Receiving maintenance data from the backend API
- * 2. Uploading images to Google Drive
- * 3. Saving data to Google Sheets with Drive links
- * 4. Retrieving logs for the dashboard
- * 
- * DEPLOYMENT INSTRUCTIONS:
- * 
- * 1. Open Google Apps Script: https://script.google.com
- * 2. Click "New Project"
- * 3. Copy this entire file content and paste it
- * 4. Save the project (name it "Vehicle Maintenance Logs")
- * 5. Run setup() function once to create Sheet and Drive folder
- * 6. Deploy as Web App:
- *    - Click "Deploy" > "New deployment"
- *    - Select "Web app"
- *    - Execute as: "Me"
- *    - Who has access: "Anyone"
- *    - Click "Deploy"
- * 7. Copy the Web App URL and provide it to configure the backend
- * 
- */
+// Code.gs
+// Vehicle Maintenance Backend - Google Apps Script (single-file backend)
+//
+// Run setup() once manually to create sheets and folder.
+//
+// Endpoints:
+//  - POST  (body JSON) -> submit maintenance: { action: "submit", ... }
+//  - POST  (body JSON) -> save status check: { action: "status", client_name: "..." }
+//  - GET   ?action=get_logs[&vehicle_number=XXX] -> list logs
+//  - GET   ?action=health -> simple health check
 
-// Configuration
 const SHEET_NAME = "Maintenance Logs";
+const STATUS_SHEET_NAME = "Status Checks";
 const DRIVE_FOLDER_NAME = "Vehicle Maintenance Images";
+const MAX_BASE64_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB per file (adjust as needed)
 
-/**
- * Initialize Google Sheet and Drive folder
- * Run this function ONCE after creating the script
- */
+/* ------------------ Utilities ------------------ */
+
+function _jsonResponse(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getOrCreateDriveFolder() {
+  const folders = DriveApp.getFoldersByName(DRIVE_FOLDER_NAME);
+  if (folders.hasNext()) return folders.next();
+  return DriveApp.createFolder(DRIVE_FOLDER_NAME);
+}
+
+function getOrCreateSheetByName(name, headers) {
+  const files = DriveApp.getFilesByName(name);
+  if (files.hasNext()) {
+    return SpreadsheetApp.open(files.next()).getSheets()[0];
+  }
+  const ss = SpreadsheetApp.create(name);
+  const sheet = ss.getSheets()[0];
+  if (headers && headers.length) {
+    sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
 
 function formatJsonForSheet(jsonInput) {
   try {
     const obj = (typeof jsonInput === "string") ? JSON.parse(jsonInput || "{}") : jsonInput;
-
     if (!obj || Object.keys(obj).length === 0) return "";
-
-    return Object.entries(obj)
-      .map(([key, val]) => `${key}: ${val}`)
-      .join("\n");
-
+    return Object.entries(obj).map(([k, v]) => `${k}: ${v}`).join("\n");
   } catch (err) {
-    return jsonInput; // fallback to raw value if parsing fails
+    return jsonInput || "";
   }
 }
 
 function convertReadableToJson(str) {
   if (!str || str.trim() === "") return "{}";
-
   const obj = {};
   const lines = str.split("\n");
-
   for (let line of lines) {
     const parts = line.split(":");
     if (parts.length >= 2) {
@@ -62,148 +65,178 @@ function convertReadableToJson(str) {
       obj[key] = val;
     }
   }
-
   return JSON.stringify(obj);
 }
 
+function validateBase64Size(dataUri) {
+  if (!dataUri) return true;
+  const m = dataUri.match(/^data:.+;base64,(.+)$/);
+  if (!m) return false;
+  const b64 = m[1];
+  // Rough size check: each 4 base64 chars = 3 bytes
+  const approxBytes = Math.ceil((b64.length * 3) / 4);
+  return approxBytes <= MAX_BASE64_SIZE_BYTES;
+}
+
+function uploadBase64ToDrive(base64Data, fileName, folder) {
+  try {
+    const matches = base64Data.match(/^data:(.+);base64,(.+)$/);
+    if (!matches) {
+      throw new Error("Invalid base64 format");
+    }
+    const mimeType = matches[1];
+    const base64 = matches[2];
+    // size check
+    const b = Utilities.base64Decode(base64);
+    const blob = Utilities.newBlob(b, mimeType, fileName);
+    const file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return file.getUrl();
+  } catch (error) {
+    Logger.log("uploadBase64ToDrive error: " + error.toString());
+    return "";
+  }
+}
+
+/* ------------------ Setup ------------------ */
+
 function setup() {
   try {
-    // Create or get spreadsheet
-    let sheet = getOrCreateSheet();
-    
-    // Create headers if sheet is new
-    if (sheet.getLastRow() === 0) {
-      const headers = [
-        "ID",
-        "Timestamp",
-        "Vehicle Number",
-        "Battery Number",
-        "Battery Photo URL",
-        "Tyres Data",
-        "Tyre Photos URLs",
-        "Vehicle Images URLs"
-      ];
-      sheet.appendRow(headers);
-      sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
-      sheet.setFrozenRows(1);
-    }
-    
-    // Create Drive folder
+    const sheet = getOrCreateSheetByName(SHEET_NAME, [
+      "ID",
+      "Timestamp",
+      "Vehicle Number",
+      "Battery 1 Number",
+      "Battery 1 Photo URL",
+      "Battery 2 Number",
+      "Battery 2 Photo URL",
+      "Tyres Data",
+      "Tyre Photos URLs",
+      "Vehicle Images URLs"
+    ]);
+    const statusSheet = getOrCreateSheetByName(STATUS_SHEET_NAME, [
+      "ID",
+      "Client Name",
+      "Timestamp"
+    ]);
     const folder = getOrCreateDriveFolder();
-    
-    Logger.log("✓ Setup complete!");
-    Logger.log("✓ Sheet created: " + sheet.getParent().getUrl());
-    Logger.log("✓ Drive folder created: " + folder.getUrl());
-    
-    return {
-      success: true,
-      sheetUrl: sheet.getParent().getUrl(),
-      folderUrl: folder.getUrl()
-    };
-  } catch (error) {
-    Logger.log("✗ Setup error: " + error.toString());
-    return { success: false, error: error.toString() };
+    Logger.log("Setup complete. Sheet: " + sheet.getParent().getUrl() + " Folder: " + folder.getUrl());
+    return { success: true, sheetUrl: sheet.getParent().getUrl(), folderUrl: folder.getUrl() };
+  } catch (err) {
+    Logger.log("Setup error: " + err.toString());
+    return { success: false, error: err.toString() };
   }
 }
 
-/**
- * Handle POST requests from backend
- */
-function doPost(e) {
-  try {
-    const data = JSON.parse(e.postData.contents);
-    
-    if (data.action === "submit") {
-      return submitMaintenanceLog(data);
-    }
-    
-    return ContentService.createTextOutput(
-      JSON.stringify({ success: false, error: "Invalid action" })
-    ).setMimeType(ContentService.MimeType.JSON);
-    
-  } catch (error) {
-    Logger.log("doPost error: " + error.toString());
-    return ContentService.createTextOutput(
-      JSON.stringify({ 
-        success: false, 
-        error: error.toString() 
-      })
-    ).setMimeType(ContentService.MimeType.JSON);
-  }
-}
+/* ------------------ Web entry points ------------------ */
 
-/**
- * Handle GET requests (retrieve logs)
- */
 function doGet(e) {
   try {
-    const action = e.parameter.action;
-    
+    const action = (e.parameter && e.parameter.action) ? e.parameter.action : "info";
+
     if (action === "get_logs") {
       const vehicleNumber = e.parameter.vehicle_number || null;
       return getMaintenanceLogs(vehicleNumber);
     }
-    
-    // Default: return API info
-    return ContentService.createTextOutput(
-      JSON.stringify({
-        success: true,
-        message: "Vehicle Maintenance Logs API - CJ Darcl Logistics",
-        endpoints: {
-          submit: "POST with action=submit",
-          get_logs: "GET with action=get_logs"
-        }
-      })
-    ).setMimeType(ContentService.MimeType.JSON);
-    
-  } catch (error) {
-    Logger.log("doGet error: " + error.toString());
-    return ContentService.createTextOutput(
-      JSON.stringify({ 
-        success: false, 
-        error: error.toString() 
-      })
-    ).setMimeType(ContentService.MimeType.JSON);
+
+    if (action === "health") {
+      return _jsonResponse({ success: true, message: "ok", timestamp: new Date().toISOString() });
+    }
+
+    // Default info
+    return _jsonResponse({
+      success: true,
+      message: "Vehicle Maintenance Logs API - Apps Script",
+      endpoints: {
+        submit: "POST body JSON { action: 'submit', ... }",
+        status: "POST body JSON { action: 'status', client_name: '...' }",
+        get_logs: "GET ?action=get_logs"
+      }
+    });
+
+  } catch (err) {
+    Logger.log("doGet error: " + err.toString());
+    return _jsonResponse({ success: false, error: err.toString() });
   }
 }
 
-/**
- * Submit maintenance log entry
- */
+function doPost(e) {
+  try {
+    const raw = e.postData && e.postData.contents ? e.postData.contents : "{}";
+    const data = JSON.parse(raw);
+    const action = data.action || "";
+
+    if (action === "submit") {
+      return submitMaintenanceLog(data);
+    } else if (action === "status") {
+      return saveStatusCheck(data);
+    } else {
+      return _jsonResponse({ success: false, error: "Invalid action" });
+    }
+  } catch (err) {
+    Logger.log("doPost error: " + err.toString());
+    return _jsonResponse({ success: false, error: err.toString() });
+  }
+}
+
+/* ------------------ Core: submit / get logs / status ------------------ */
+
 function submitMaintenanceLog(data) {
   try {
-    const sheet = getOrCreateSheet();
+    if (!data.vehicleNumber || data.vehicleNumber.toString().trim() === "") {
+      return _jsonResponse({ success: false, error: "vehicleNumber is required" });
+    }
+
+    // load folder now
+    const sheet = getOrCreateSheetByName(SHEET_NAME);
     const folder = getOrCreateDriveFolder();
+
     const timestamp = new Date().toISOString();
-    const rowId = sheet.getLastRow();
-    
-    // Upload battery photo if provided
-    let batteryPhotoUrl = "";
-    if (data.batteryPhoto && data.batteryPhoto.startsWith("data:image")) {
-      batteryPhotoUrl = uploadBase64ToDrive(
-        data.batteryPhoto,
-        `battery_${data.vehicleNumber}_${Date.now()}`,
+    const id = Utilities.getUuid();
+
+    // Battery 1
+    let battery1PhotoUrl = "";
+    if (data.battery1Photo && data.battery1Photo.startsWith("data:image")) {
+      battery1PhotoUrl = uploadBase64ToDrive(
+        data.battery1Photo,
+        `battery1_${data.vehicleNumber}_${Date.now()}`,
         folder
       );
     }
-    
-    // Upload tyre photos
-    const tyrePhotosData = JSON.parse(data.tyrePhotos || "{}");
+
+    // Battery 2
+    let battery2PhotoUrl = "";
+    if (data.battery2Photo && data.battery2Photo.startsWith("data:image")) {
+      battery2PhotoUrl = uploadBase64ToDrive(
+        data.battery2Photo,
+        `battery2_${data.vehicleNumber}_${Date.now()}`,
+        folder
+      );
+    }
+
+    // Tyre photo decoding
+    let tyrePhotosData = typeof data.tyrePhotos === "string"
+      ? JSON.parse(data.tyrePhotos || "{}")
+      : (data.tyrePhotos || {});
     const tyrePhotoUrls = {};
-    for (const [position, base64] of Object.entries(tyrePhotosData)) {
+    for (const pos in tyrePhotosData) {
+      const base64 = tyrePhotosData[pos];
       if (base64 && base64.startsWith("data:image")) {
-        tyrePhotoUrls[position] = uploadBase64ToDrive(
+        tyrePhotoUrls[pos] = uploadBase64ToDrive(
           base64,
-          `tyre_${position}_${data.vehicleNumber}_${Date.now()}`,
+          `tyre_${pos}_${data.vehicleNumber}_${Date.now()}`,
           folder
         );
       }
     }
-    
-    // Upload vehicle images
-    const vehicleImagesData = JSON.parse(data.vehicleImages || "{}");
+
+    // Vehicle images decoding
+    let vehicleImagesData = typeof data.vehicleImages === "string"
+      ? JSON.parse(data.vehicleImages || "{}")
+      : (data.vehicleImages || {});
     const vehicleImageUrls = {};
-    for (const [view, base64] of Object.entries(vehicleImagesData)) {
+    for (const view in vehicleImagesData) {
+      const base64 = vehicleImagesData[view];
       if (base64 && base64.startsWith("data:image")) {
         vehicleImageUrls[view] = uploadBase64ToDrive(
           base64,
@@ -212,168 +245,84 @@ function submitMaintenanceLog(data) {
         );
       }
     }
-    
-    // Append row to sheet
+
     const row = [
-      rowId,
+      id,
       timestamp,
       data.vehicleNumber,
-      data.batteryNumber || "",
-      batteryPhotoUrl,
-      formatJsonForSheet(data.tyres),
+      data.battery1Number || "",
+      battery1PhotoUrl,
+      data.battery2Number || "",
+      battery2PhotoUrl,
+      formatJsonForSheet(data.tyres || {}),
       formatJsonForSheet(tyrePhotoUrls),
-      formatJsonForSheet(vehicleImageUrls)
+      formatJsonForSheet(vehicleImageUrls),
     ];
-    
+
     sheet.appendRow(row);
-    
-    const result = {
+
+    return _jsonResponse({
       success: true,
       message: "Maintenance log saved successfully",
-      data: {
-        id: rowId.toString(),
-        vehicleNumber: data.vehicleNumber,
-        submittedAt: timestamp
-      }
-    };
-    
-    return ContentService.createTextOutput(
-      JSON.stringify(result)
-    ).setMimeType(ContentService.MimeType.JSON);
-    
-  } catch (error) {
-    Logger.log("submitMaintenanceLog error: " + error.toString());
-    return ContentService.createTextOutput(
-      JSON.stringify({ 
-        success: false, 
-        error: error.toString() 
-      })
-    ).setMimeType(ContentService.MimeType.JSON);
+      data: { id, vehicleNumber: data.vehicleNumber, submittedAt: timestamp }
+    });
+
+  } catch (err) {
+    Logger.log("submitMaintenanceLog error: " + err.toString());
+    return _jsonResponse({ success: false, error: err.toString() });
   }
 }
 
-/**
- * Retrieve maintenance logs
- */
+
 function getMaintenanceLogs(vehicleNumber) {
   try {
-    const sheet = getOrCreateSheet();
+    const sheet = getOrCreateSheetByName(SHEET_NAME);
     const data = sheet.getDataRange().getValues();
-    
     if (data.length <= 1) {
-      return ContentService.createTextOutput(
-        JSON.stringify({ success: true, count: 0, logs: [] })
-      ).setMimeType(ContentService.MimeType.JSON);
+      return _jsonResponse({ success: true, count: 0, logs: [] });
     }
-    
+
     const logs = [];
-    
-    // Skip header row
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
-      
-      // Filter by vehicle number if provided
-      if (vehicleNumber && row[2] !== vehicleNumber) {
-        continue;
-      }
-      
+      if (vehicleNumber && row[2] !== vehicleNumber) continue;
       const log = {
-        id: row[0].toString(),
+        id: row[0],
         submittedAt: row[1],
         vehicleNumber: row[2],
-        batteryNumber: row[3] || null,
-        batteryPhotoUrl: row[4] || null,
-        tyres: JSON.parse(convertReadableToJson(row[5])),
-        tyrePhotoUrls: JSON.parse(convertReadableToJson(row[6])),
-        vehicleImageUrls: JSON.parse(convertReadableToJson(row[7]))
+        battery1Number: row[3] || null,
+        battery1PhotoUrl: row[4] || null,
+        battery2Number: row[5] || null,
+        battery2PhotoUrl: row[6] || null,
+        tyres: JSON.parse(convertReadableToJson(row[7])),
+        tyrePhotoUrls: JSON.parse(convertReadableToJson(row[8])),
+        vehicleImageUrls: JSON.parse(convertReadableToJson(row[9]))
       };
-      
       logs.push(log);
     }
-    
-    // Sort by timestamp descending (newest first)
-    logs.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
-    
-    return ContentService.createTextOutput(
-      JSON.stringify({ 
-        success: true, 
-        count: logs.length, 
-        logs: logs 
-      })
-    ).setMimeType(ContentService.MimeType.JSON);
-    
-  } catch (error) {
-    Logger.log("getMaintenanceLogs error: " + error.toString());
-    return ContentService.createTextOutput(
-      JSON.stringify({ 
-        success: false, 
-        error: error.toString() 
-      })
-    ).setMimeType(ContentService.MimeType.JSON);
+
+    logs.sort(function(a,b){ return new Date(b.submittedAt) - new Date(a.submittedAt); });
+
+    return _jsonResponse({ success: true, count: logs.length, logs: logs });
+
+  } catch (err) {
+    Logger.log("getMaintenanceLogs error: " + err.toString());
+    return _jsonResponse({ success: false, error: err.toString() });
   }
 }
 
-/**
- * Upload base64 image to Google Drive
- */
-function uploadBase64ToDrive(base64Data, fileName, folder) {
+function saveStatusCheck(data) {
   try {
-    // Extract mime type and data
-    const matches = base64Data.match(/^data:(.+);base64,(.+)$/);
-    if (!matches) {
-      throw new Error("Invalid base64 format");
-    }
-    
-    const mimeType = matches[1];
-    const base64 = matches[2];
-    
-    // Convert base64 to blob
-    const blob = Utilities.newBlob(
-      Utilities.base64Decode(base64),
-      mimeType,
-      fileName
-    );
-    
-    // Upload to Drive
-    const file = folder.createFile(blob);
-    
-    // Make file accessible to anyone with link
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    
-    // Return shareable link
-    return file.getUrl();
-    
-  } catch (error) {
-    Logger.log("uploadBase64ToDrive error: " + error.toString());
-    return "";
-  }
-}
+    const clientName = data.client_name || data.clientName || "unknown";
+    if (!clientName) return _jsonResponse({ success: false, error: "client_name is required" });
 
-/**
- * Get or create Google Sheet
- */
-function getOrCreateSheet() {
-  const spreadsheets = DriveApp.getFilesByName(SHEET_NAME);
-  
-  if (spreadsheets.hasNext()) {
-    const spreadsheet = SpreadsheetApp.open(spreadsheets.next());
-    return spreadsheet.getSheets()[0];
+    const sheet = getOrCreateSheetByName(STATUS_SHEET_NAME);
+    const id = Utilities.getUuid();
+    const timestamp = new Date().toISOString();
+    sheet.appendRow([id, clientName, timestamp]);
+    return _jsonResponse({ success: true, id: id, clientName: clientName, timestamp: timestamp });
+  } catch (err) {
+    Logger.log("saveStatusCheck error: " + err.toString());
+    return _jsonResponse({ success: false, error: err.toString() });
   }
-  
-  // Create new spreadsheet
-  const spreadsheet = SpreadsheetApp.create(SHEET_NAME);
-  return spreadsheet.getSheets()[0];
-}
-
-/**
- * Get or create Drive folder
- */
-function getOrCreateDriveFolder() {
-  const folders = DriveApp.getFoldersByName(DRIVE_FOLDER_NAME);
-  
-  if (folders.hasNext()) {
-    return folders.next();
-  }
-  
-  return DriveApp.createFolder(DRIVE_FOLDER_NAME);
 }
