@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
 import { ArrowLeft, Search, Calendar, Truck, Battery, CircleDot, Loader2, RefreshCw } from 'lucide-react';
+import { UserMenu } from '../components/UserMenu';
 import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -65,14 +66,18 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-            className="hover:bg-white transition-colors w-fit"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/')}
+              className="hover:bg-white transition-colors w-fit"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Home
+            </Button>
+          </div>
+
+          <UserMenu />
 
           <div className="flex gap-3 items-center">
             <div className="relative w-full md:w-96">

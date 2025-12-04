@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -26,6 +27,7 @@ import { cn } from "../lib/utils";
 import { toast } from '../hooks/use-toast';
 import { vehicleNumbers, tyrePositions, vehicleImageTypes } from '../mock';
 import { Upload, Save, ArrowLeft, Loader2 } from 'lucide-react';
+import { UserMenu } from '../components/UserMenu';
 import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -33,8 +35,20 @@ const API = BACKEND_URL;
 
 const MaintenanceForm = () => {
   const navigate = useNavigate();
+  const { isSignedIn, isLoaded, token } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [comboboxOpen, setComboboxOpen] = useState(false);
+
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to submit maintenance logs",
+        variant: "destructive"
+      });
+      navigate('/');
+    }
+  }, [isLoaded, isSignedIn, navigate]);
 
   const [formData, setFormData] = useState({
     vehicleNumber: '',
@@ -136,16 +150,26 @@ const MaintenanceForm = () => {
       return;
     }
 
+    if (!token) {
+      toast({
+        title: "Authentication Error",
+        description: "Unable to get authentication token. Please try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Submit to backend API
+      // Submit to backend API with auth token
       const response = await axios.post(
-        API,
-        JSON.stringify({ action: "submit", ...formData }),
+        `${API}/maintenance/submit`,
+        formData,
         {
           headers: {
-            "Content-Type": "text/plain"
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
           }
         }
       );
@@ -184,18 +208,29 @@ const MaintenanceForm = () => {
     }
   };
 
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: '#007BC1' }} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8 px-4">
       <div className="max-w-5xl mx-auto">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/')}
-          className="mb-6 hover:bg-white transition-colors"
-          disabled={isSubmitting}
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Home
-        </Button>
+        <div className="flex justify-between items-center mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/')}
+            className="hover:bg-white transition-colors"
+            disabled={isSubmitting}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Home
+          </Button>
+          <UserMenu />
+        </div>
 
         <Card className="shadow-xl border-t-4" style={{ borderTopColor: '#007BC1' }}>
           <CardHeader className="bg-white border-b">

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { FileText, BarChart3, Truck, Settings } from 'lucide-react';
+import { UserMenu } from '../components/UserMenu';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -39,9 +40,7 @@ const Home = () => {
                 className="h-16 w-auto"
               />
             </div>
-            <div className="flex items-center gap-3">
-              <Settings className="h-6 w-6" style={{ color: '#747375' }} />
-            </div>
+            <UserMenu />
           </div>
         </div>
       </header>

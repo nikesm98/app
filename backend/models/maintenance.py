@@ -4,8 +4,10 @@ from datetime import datetime
 
 class MaintenanceSubmission(BaseModel):
     vehicleNumber: str = Field(..., min_length=1, description="Vehicle registration number")
-    batteryNumber: Optional[str] = None
-    batteryPhoto: Optional[str] = None
+    battery1Number: Optional[str] = None
+    battery1Photo: Optional[str] = None
+    battery2Number: Optional[str] = None
+    battery2Photo: Optional[str] = None
     tyres: Optional[Dict[str, str]] = Field(default_factory=dict)
     tyrePhotos: Optional[Dict[str, str]] = Field(default_factory=dict)
     vehicleImages: Optional[Dict[str, str]] = Field(default_factory=dict)
@@ -19,6 +21,8 @@ class MaintenanceResponse(BaseModel):
 class MaintenanceLog(BaseModel):
     id: str
     vehicleNumber: str
+    userId: Optional[str] = None
+    userEmail: Optional[str] = None
     battery1Number: Optional[str] = None
     battery1PhotoUrl: Optional[str] = None
     battery2Number: Optional[str] = None
